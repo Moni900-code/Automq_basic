@@ -1,7 +1,5 @@
 # AutoMQ Deployment Guide (With Docker + .tgz Build Fix)
 
-
-
 ## Deployment Instructions
 
 ### 1. Clone AutoMQ Repository
@@ -105,7 +103,6 @@ export GRADLE_OPTS="-Xmx512m -XX:MaxMetaspaceSize=128m -Dorg.gradle.jvmargs='-Xm
 ./gradlew releaseTarGz -x test -x check --no-daemon --no-parallel --stacktrace
 ```
 
-
 pip install:
 
 apt update
@@ -141,3 +138,52 @@ docker exec -it automq-broker /opt/kafka/kafka/bin/kafka-topics.sh --describe --
 docker exec -it automq-broker /opt/kafka/kafka/bin/kafka-consumer-groups.sh \
   --bootstrap-server localhost:9092 \
   --describe --group event-processor
+
+
+
+
+
+
+
+
+
+> **No space left on device**
+
+### 1. Check Disk Space
+
+```bash
+df -h
+```
+
+###  2. Clean Up Unnecessary Files
+
+#### A. Clean up Docker system 
+
+```bash
+docker system prune -af
+```
+
+#### B. Clean apt cache
+
+```bash
+apt clean
+```
+
+#### C. Delete old log files
+
+```bash
+rm -rf /var/log/*.gz /var/log/*.1 /var/log/journal/*
+```
+
+#### D. Clear Gradle cache (if you're low on space)
+
+```bash
+rm -rf ~/.gradle/caches/
+```
+
+#### E. Delete temporary `.zip` or `.tgz` files
+
+```bash
+find / -type f \( -name "*.zip" -o -name "*.tgz" \) -delete 2>/dev/null
+```
+
