@@ -106,3 +106,38 @@ export GRADLE_OPTS="-Xmx512m -XX:MaxMetaspaceSize=128m -Dorg.gradle.jvmargs='-Xm
 ```
 
 
+pip install:
+
+apt update
+apt install -y python3-pip
+
+
+env setup: 
+apt update
+apt install -y python3.8-venv
+
+# Check logs
+docker-compose logs automq
+
+# Create a test topic
+docker exec -it automq-broker /opt/kafka/kafka/bin/kafka-topics.sh \
+  --create --topic test-events \
+  --bootstrap-server automq:9092 \
+  --partitions 3 --replication-factor 1
+
+# List topics
+docker exec -it automq-broker opt/kafka/kafka/bin/kafka-topics.sh \
+  --list --bootstrap-server automq:9092
+
+
+# find consumer group and topic path
+Run shell inside container:
+docker exec -it automq-broker bash
+find / -name kafka-topics.sh 2>/dev/null
+
+# Check topic details
+docker exec -it automq-broker /opt/kafka/kafka/bin/kafka-topics.sh --describe --topic test-events --bootstrap-server automq:9092
+# Check consumer group
+docker exec -it automq-broker /opt/kafka/kafka/bin/kafka-consumer-groups.sh \
+  --bootstrap-server localhost:9092 \
+  --describe --group event-processor
