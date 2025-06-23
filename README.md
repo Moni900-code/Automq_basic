@@ -14,6 +14,11 @@ cd automq/docker
 ```bash
 docker build -t automq-ce .
 ```
+##### error:
+```bash
+Step 5/12 : COPY "./automq-*.tgz" /opt/kafka/kafka.tgz
+COPY failed: no source files were specified
+```
 
 ### 3. Update Docker Compose
 
@@ -31,7 +36,7 @@ docker-compose up -d
 
 ---
 
-## .tgz Build Issue Fixation
+# .tgz Build Issue Fixation
 
 If you encounter `.tgz` build errors or out-of-memory issues, follow these steps:
 
@@ -49,20 +54,24 @@ java -version
 ### 2. Build .tgz Without Tests
 
 ```bash
-./gradlew releaseTarGz -x test -x check
+./gradlew releaseTarGz -x test -x check --no-daemon --info
+
 ```
 
 ### 3. Copy `.tgz` to Docker Folder
 
 ```bash
-cp build/distributions/automq-*.tgz docker/
+cd /root/code/Automq_basic/automq/core/build/distributions/
+cp automq-3.9.0-SNAPSHOT.tgz /root/code/Automq_basic/automq/docker/
+
 ```
 
 ### 4. Build Docker Image
 
 ```bash
 cd docker
-docker build -t automq-ce .
+docker build -t automqinc/automq:1.6.0 .
+
 ```
 
 ### 5. Run Docker Compose
@@ -103,48 +112,12 @@ export GRADLE_OPTS="-Xmx512m -XX:MaxMetaspaceSize=128m -Dorg.gradle.jvmargs='-Xm
 ./gradlew releaseTarGz -x test -x check --no-daemon --no-parallel --stacktrace
 ```
 
+
+## extra note:
 pip install:
 
 apt update
 apt install -y python3-pip
-
-
-env setup: 
-apt update
-apt install -y python3.8-venv
-
-# Check logs
-docker-compose logs automq
-
-# Create a test topic
-docker exec -it automq-broker /opt/kafka/kafka/bin/kafka-topics.sh \
-  --create --topic test-events \
-  --bootstrap-server automq:9092 \
-  --partitions 3 --replication-factor 1
-
-# List topics
-docker exec -it automq-broker opt/kafka/kafka/bin/kafka-topics.sh \
-  --list --bootstrap-server automq:9092
-
-
-# find consumer group and topic path
-Run shell inside container:
-docker exec -it automq-broker bash
-find / -name kafka-topics.sh 2>/dev/null
-
-# Check topic details
-docker exec -it automq-broker /opt/kafka/kafka/bin/kafka-topics.sh --describe --topic test-events --bootstrap-server automq:9092
-# Check consumer group
-docker exec -it automq-broker /opt/kafka/kafka/bin/kafka-consumer-groups.sh \
-  --bootstrap-server localhost:9092 \
-  --describe --group event-processor
-
-
-
-
-
-
-
 
 
 > **No space left on device**
