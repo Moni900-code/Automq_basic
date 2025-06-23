@@ -2,11 +2,11 @@ version: '3.8'
 
 services:
   automq:
-    image: automq-ce
-    container_name: automq
+    image: automqinc/automq:1.6.0
+    container_name: automq-single-server
     ports:
       - "9092:9092"
-      - "9093:9093"   # Optional if you're using controller mode
+      - "9093:9093"   # Optional for controller communication
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
