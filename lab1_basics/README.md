@@ -26,7 +26,7 @@ chmod 600 /swapfile
 mkswap /swapfile
 swapon /swapfile
 export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-export GRADLE_OPTS="-Xmx512m 
+export GRADLE_OPTS="-Xmx512m"
 ```
 
 ### 4. Confirm Swap:
