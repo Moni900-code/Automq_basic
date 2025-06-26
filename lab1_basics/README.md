@@ -1,121 +1,194 @@
 # AutoMQ Basic Producer & Consumer 
 
-## What is AutoMQ?
-
+# Introduction
 AutoMQ is a Kafka-compatible, cloud-native messaging and streaming platform designed for high scalability, low latency, and cost efficiency. It leverages cloud infrastructure to provide a serverless Kafka alternative, maintaining compatibility with Kafka APIs while optimizing for cloud environments.
 
-## Why Use AutoMQ?
-
-AutoMQ is used to:
-- Handle large-scale event streaming with minimal operational overhead.
-- Provide a cost-effective alternative to traditional Apache Kafka deployments.
-- Enable seamless integration with existing Kafka-based applications due to API compatibility.
-- Support serverless scaling, reducing infrastructure management.
-
-### Where is AutoMQ Used?
+AutoMQ Deployment Scenarios:
 
 * **Streaming Data**: From IoT, logs, user events
 * **Microservices**: For event-driven communication
 * **Big Data**: Send data to tools like Spark/Flink
 * **Messaging**: For apps like e-commerce, finance, gaming
 
-### Pros of AutoMQ
 
-* Works with **Kafka clients**
-* **Auto-scales**, no manual config
-* **Low cost** (pay-as-you-go)
-* **Fast** (low latency, high throughput)
-* Built for **cloud** use
+# Architecture
 
-### Cons of AutoMQ
+![alt text](automq_overall.svg)
 
-* Needs **cloud setup** (not for offline use)
-* Some **learning required**
-* **Smaller ecosystem** than Kafka
+### Detailed Components
 
-## Diagram of Automq System:
+#### 1. **Streaming Data**
+Represents the incoming data flow from producers (applications using Kafka clients in Java or Python) to the AutoMQ system.
+  - Data streams are ingested into the stateless broker for processing.
+  - The dashed lines indicate the continuous flow of data into the system.
 
-![alt text](automq_diagram.svg)
+This is the entry point for all messages or events that need to be processed, stored, and delivered to consumers.
 
-This appears to be a system diagram for AutoMQ. Here, explanation of how AutoMQ works based on this diagram:
+#### 2. **Stateless Broker**
+- **Description**: The central component, labeled "Stateless Broker" consists of multiple broker instances, each with a computing layer and an S3Stream module. Think of the stateless broker as a team of air traffic controllers who direct planes (messages) to their destinations without needing to store the planes themselves—storage is handled elsewhere (cloud storage).
 
-**1. Infrastructure**
-
-* **Linux VM:** Runs Ubuntu 20.04+ with 4GB RAM, 2 CPU.
-* **Docker Engine:** AutoMQ runs inside Docker containers.
-* **Port 9092:** Open for Kafka-compatible communication.
-
----
-
-**2. AutoMQ Broker (Core Engine)**
-
-* Acts like a Kafka broker (v3.3.0-SNAPSHOT).
-* Handles **message processing**, **storage**, and **topic management** (e.g., `test-topic`).
-* Uses the **Kafka protocol** for compatibility with Kafka clients.
-* Delivers messages to consumers.
-
----
-
-**3. Kafka API Gateway**
-
-* Exposes **Kafka-compatible APIs** on port 9092.
-* Routes messages between clients and the AutoMQ Broker.
-* Supports **produce** and **consume** operations.
-
----
-
-**4. Client Applications**
-
-* **Python Clients:** Use `kafka-python` to produce/consume messages.
-* **Java Clients:** Use Kafka's standard client API.
-* Both can connect to AutoMQ as if it's Kafka.
-
----
-
-**5. Monitoring**
-
-* Tracks **throughput**, **latency**, **system logs**, and **Docker logs**.
-* Provides **debug info** and **audit trail** for troubleshooting and security.
-
-## **How AutoMQ Works?**
-
-![alt text](automq_workflow.svg)
-
-1.  **Deployment:** AutoMQ components (Broker, API Gateway) are deployed as Docker containers on a Linux VM, leveraging the Docker Engine for runtime.
-2.  **Client Connection:** Client applications (e.g., Python, Java) connect to the Kafka API Gateway over the network (Port 9092).
-3.  **Producing Messages:**
-    * A client application (Python Producer) uses a Kafka client library (e.g., `kafka-python`) to send messages.
-    * These messages are sent to the Kafka API Gateway using Kafka-compatible APIs.
-    * The Kafka API Gateway routes these messages to the AutoMQ Broker, which receives them via the Kafka Protocol.
-    * The AutoMQ Broker processes these messages and stores them in relevant topics (e.g., "test-topic").
-4.  **Consuming Messages:**
-    * A client application (Python Consumer) uses a Kafka client API to request messages from the Kafka API Gateway.
-    * The Kafka API Gateway, communicating with the AutoMQ Broker via the Kafka Protocol, retrieves the requested messages.
-    * The AutoMQ Broker delivers the messages.
-    * The Kafka API Gateway then sends these messages back to the client application.
-5.  **Monitoring:** Throughout these operations, various logs (system, Docker), performance metrics (throughput, latency), and debugging information are collected to ensure the system's smooth operation and allow for troubleshooting.
+- **Components**:
+  - **Broker**: Multiple broker instances handle message routing and processing.
+  - **Computing Layer**: Manages the logic for handling topics, partitions, and message distribution.
+  - **S3Stream**: A module that interfaces with the shared cloud storage for data persistence.
+- **Function**: 
+  - Brokers receive streaming data and process it using the computing layer.
+  - Being stateless, they do not store data locally; instead, they rely on the shared cloud storage for persistence via S3Stream.
 
 
-## How to Use AutoMQ?
+#### 3. **Shared Cloud Storage**
+- **Description**: A "Shared Cloud Storage" which serves as the persistent storage layer for the entire system. Offloading storage to the cloud eliminates the need for local disks on broker nodes, enhancing scalability and reducing costs.
+- **Components**:
+  - **WAL Storage**: Includes various Write-Ahead Log options:
+    - **WAL Storage**: Generic WAL for logging transactions.
+    - **EBBS WAL**: Elastic Block Store WAL, likely using AWS EBS.
+    - **S3 WAL**: Direct integration with S3 for WAL.
+    - **NFS WAL**: Network File System-based WAL.
+  - **Main Storage**: 
+    - **Object Storage (S3)**: The primary storage layer using cloud object storage (Amazon S3).
+- **Function**: 
+  - WAL storage ensures durability by logging all changes before they are applied, supporting crash recovery.
+  - Object Storage (S3) holds the main data corpus, providing scalable and cost-effective long-term storage.
 
-This lab guides you through deploying AutoMQ, writing a Python producer and consumer, and monitoring throughput/latency. Follow the steps below to set up and test AutoMQ on a cloud VM.
 
----
+#### 4. **Automatic Controller**
+- **Description**: An "Automatic Controller" that oversees the system's operation and optimization. This is like a smart building manager who monitors occupancy (metrics), adjusts the number of staff (auto scaling), and reassigns tasks (auto balancing) to keep everything running smoothly.
+- **Components**:
+  - **Metrics Collector**: Gathers performance metrics such as throughput, latency, and resource usage.
+  - **Auto Scaling**: Dynamically adjusts the number of broker instances based on load.
+  - **Auto Balancing**: Distributes load evenly across brokers and storage resources.
+- **Function**: 
+  - Monitors the system in real-time using metrics collected by the Metrics Collector.
+  - Automatically scales the number of brokers up or down and balances the workload to maintain performance and efficiency.
 
-### Prerequisites
 
-- **System Requirements**: Linux-based VM (Ubuntu 20.04+), 4GB RAM, 2 CPUs, 20GB disk.
+### Workflow
+1. **Data Ingestion**:
+   - Streaming data enters the stateless broker through multiple broker instances.
+   - The computing layer processes the data.
+
+2. **Data Persistence**:
+   - The S3Stream module within each broker writes data to the shared cloud storage.
+   - WAL storage (EBBS WAL, S3 WAL, NFS WAL) logs transactions to ensure durability.
+   - The main data is stored in the Object Storage (S3) layer for long-term retention.
+
+3. **Automation and Optimization**:
+   - The Automatic Controller continuously collects metrics via the Metrics Collector.
+   - Based on these metrics, it triggers Auto Scaling to add or remove broker instances and uses Auto Balancing to redistribute the workload across the system.
+
+4. **Data Delivery**:
+   - Consumers retrieve data from the brokers, which fetch it from the shared cloud storage as needed.
+   - The stateless nature ensures that brokers can scale independently without being tied to local storage.
+
+ This design is akin to a cloud-based logistics network where data (packages) is processed by a distributed team (brokers), stored in a central warehouse (cloud storage), and managed by an intelligent system (controller) to handle fluctuating demand. 
+
+## **Event Streaming Process by AutoMQ**
+
+![alt text](eventstream.svg)
+
+### Detailed Components
+
+#### 1. **Producers**
+- **Description**: Producers are client applications (Java and Python language based) that send messages to AutoMQ.
+- **Process**: 
+  - Producers use the **Kafka API Gateway** to send messages via the Kafka protocol.
+  - The gateway routes these messages to the stateless broker for processing.
+- **Example**: A Python script using `kafka-python` using Kafka’s standard client API can produce messages to topics like `Topic 1`, `Topic 2`, or `Topic n`.
+
+#### 2. **Consumers**
+- **Description**: Consumers are client applications that receive messages from AutoMQ based on their subscribtion. Similar to producers, they support Java and Python.
+- **Process**: 
+  - Consumers request messages through the **Kafka API Gateway** using the Kafka protocol.
+  - The gateway retrieves messages from the computing layer and delivers them to the consumers.
+- **Example**: A Python consumer script using `kafka-python` can subscribe to `test-topic` and process incoming messages.
+
+AutoMQ primarily follows the Publish-Subscribe (Pub/Sub) model, where the **producer publishes messages to a topic**, and the **consumer subscribes to that topic to consume messages**. In between, a **computing layer and cloud storage** work together to form a **highly scalable architecture**.
+Here is the Pub/Sub model diagram:
+
+   ![alt text](<pubsubmodel.svg>)
+
+* **Publishers** (on the left) send messages.
+* The **Message Broker** receives those messages and stores them in a **Topic**.
+* **Subscribers** (on the right) receive messages from the topic they subscribed to.
+
+> Publishers and Subscribers don’t talk to each other directly — they communicate **through the broker**.
+
+
+#### 3. **Kafka API Gateway**
+- **Description**: Acts as an entry point for both producers and consumers, exposing Kafka-compatible APIs on port 9092.
+- **Function**: 
+  - Routes incoming "Produce" requests from producers to the stateless broker.
+  - Handles "Consume" requests by fetching messages from the computing layer and delivering them to consumers.
+
+#### 4. **Stateless Broker**
+- **Description**: A central component, representing the core message routing mechanism.
+- **Function**: 
+  - Acts as an intermediary that receives messages from the Kafka API Gateway and forwards them to the appropriate topics in the computing layer.
+  - Being stateless, it does not store messages persistently; instead, it relies on the S3 bucket object storage for data persistence.
+
+#### 5. **Computing Layer**
+- **Description**: The "Computing Layer" contains the logic for managing topics and their partitions. Partitioning allows AutoMQ to scale horizontally by distributing load across multiple nodes.
+- **Components**:
+  - **Topics**: Represent logical channels for message streams (`Topic 1`, `Topic 2`, `Topic n`).
+  - **Partitions**: Each topic is divided into partitions (`Partition0`, `Partition1`) to enable parallel processing and scalability.
+- **Function**: 
+  - Organizes messages into topics and partitions based on the producer’s input.
+  - Interacts with the S3 bucket object storage to store and retrieve messages.
+
+#### 6. **S3 Bucket Object Storage**
+- **Description**: "S3 bucket Object Storage," indicating the use of cloud-based object storage. This is like a secure vault where all letters (messages) are archived after being sorted, ensuring they can be retrieved later by consumers.
+- **Function**: 
+  - Stores messages persistently, allowing the stateless broker to offload data retention.
+  - Provides durable and scalable storage for all topics and partitions.
+
+#### 7. **Automatic Controller**
+  - Monitors the system and collects metrics to ensure optimal performance.
+  - Automatically scales the computing layer up or down and balances partitions to handle traffic spikes or drops.
+
+
+### Workflow
+1. **Message Production**:
+   - Producers send messages via the Kafka API Gateway using the Kafka protocol.
+   - The gateway forwards these messages to the stateless broker.
+   - The broker directs the messages to the appropriate topic and partition in the computing layer.
+   - Messages are then stored in the S3 bucket object storage for persistence.
+
+2. **Message Consumption**:
+   - Consumers request messages through the Kafka API Gateway.
+   - The gateway retrieves messages from the computing layer, which fetches them from the S3 bucket.
+   - The broker delivers the messages to the consumers via the gateway.
+
+3. **Automation and Monitoring**:
+   - The Automatic Controller continuously collects metrics and adjusts scaling and balancing based on system demand.
+   - This ensures the system remains efficient and responsive to varying workloads.
+
+This makes AutoMQ ideal for real-time streaming applications in IoT, microservices, and big data workflows.
+
+
+# Task Description
+The primary objectives of this lab are as follows:
+
+ 1. To deploy AutoMQ on a Linux VM
+ 2. To implement Python-based producer and consumer scripts to stream messages.
+ 3. To monitor performance metrics like throughput and latency.
+
+## Prerequisites
+
+- **System Requirements**: 
+    - Linux-based VM (Ubuntu 20.04+)
+    - 4GB+ RAM
+    - 20GB+ disk.
 
 - **Tools Needed**: Docker, Docker Compose, Python 3, Git, JDK 17.
 
 - **Network**: Port 9092 open for Kafka communication.
-  - *Why?* AutoMQ (Kafka-compatible) uses port 9092 for client communication, ensuring producers and consumers can connect to the broker.
+  - AutoMQ (Kafka-compatible) uses port 9092 for client communication, ensuring producers and consumers can connect to the broker.
 
 ---
 
-## Deploying Kafka-Compatible Messaging with AutoMQ
+## Task 1: Deploying Kafka-Compatible Messaging with AutoMQ
 
-### Step 1: Deploy AutoMQ
+### Deploy AutoMQ
 
 1. **Clone AutoMQ Repository**
 
@@ -186,7 +259,7 @@ This lab guides you through deploying AutoMQ, writing a Python producer and cons
 
    - The build process creates a `.tgz` file, which needs to be extracted and moved to the Docker directory for image creation. Copying to the Docker folder prepares it for the next step.
 
-   Core Folder Structure:
+   Core Folder Structure: Location of .tgz file.
 
    ![alt text](<core folder ss-1.png>)
 
@@ -222,9 +295,9 @@ This lab guides you through deploying AutoMQ, writing a Python producer and cons
 
 ---
 
-## Producing and Consuming Events with AutoMQ Using Python Kafka-Compatible Clients
+## Task 2: Producing and Consuming Events with AutoMQ Using Python Kafka-Compatible Clients
 
-### Step 2: Set Up Python Environment
+### Set Up Python Environment
 
 1. **Install Python Dependencies**
 
@@ -264,7 +337,7 @@ This lab guides you through deploying AutoMQ, writing a Python producer and cons
 
 ---
 
-### Step 3: Create Producer and Consumer
+### Create Producer and Consumer
 
 1. **Access Container**
 
@@ -307,7 +380,9 @@ This lab guides you through deploying AutoMQ, writing a Python producer and cons
    EOF
    ```
 
-   - The producer script sends 100 JSON messages to the `test-topic`, measuring the time taken for each send and calculating throughput. Writing it directly with `cat` ensures accuracy and avoids manual editing errors.
+   - The producer script sends 100 JSON messages to the `test-topic`, measuring the time taken for each send and calculating throughput. Writing it directly with `cat` ensures accuracy and avoids manual editing errors. 
+   - The `producer.py` script sends messages to a specific Kafka topic (`test-topic`).
+   - It uses the Kafka client API to publish the messages, which is the role of a **publisher** in the Pub/Sub model.
 
 3. **Create Consumer Script**
 
@@ -349,6 +424,10 @@ This lab guides you through deploying AutoMQ, writing a Python producer and cons
    ```
 
    - The consumer script reads messages from `test-topic`, calculates latency for each message, and computes the average latency after receiving 100 messages. Using `cat` ensures the script is created correctly.
+   - The `consumer.py` script receives messages from the same `test-topic` by subscribing to it.
+   - As a Kafka consumer, it uses a **group ID** (`group_id='test1-monitor'`), which allows the Kafka broker to distribute messages across partitions accordingly.
+   - A consumer only receives messages from the topics it has subscribed to, just like a **subscriber** in the Pub/Sub model.
+
 
 4. **Verify Scripts**
 
@@ -377,7 +456,7 @@ This lab guides you through deploying AutoMQ, writing a Python producer and cons
 
 ---
 
-### Step 4: Test Message Streaming
+# Test Message Streaming
 
 1. **Run Consumer**
 
@@ -386,6 +465,7 @@ This lab guides you through deploying AutoMQ, writing a Python producer and cons
    ```bash
    docker exec -it automq-single-server bash
    source /tmp/venv/bin/activate
+   cat consumer.py # For varification
    python3 consumer.py
    ```
 
@@ -398,6 +478,7 @@ This lab guides you through deploying AutoMQ, writing a Python producer and cons
    ```bash
    docker exec -it automq-single-server bash
    source /tmp/venv/bin/activate
+   cat producer.py # For varification
    python3 producer.py
    ```
 
@@ -409,6 +490,8 @@ This lab guides you through deploying AutoMQ, writing a Python producer and cons
    
 Running both inside the container ensures it uses the same environment as the broker, minimizing network issues.
 
+## Task 3: Monitor performance metrics
+
    ![alt text](automq_api_test2-1.png)
 
 3. **Monitor Output**
@@ -417,22 +500,15 @@ Running both inside the container ensures it uses the same environment as the br
    - **Consumer Output**: Shows the latency for each received message and the average latency.
      - Latency metrics indicate how quickly messages are delivered, reflecting AutoMQ’s efficiency.
 
----
+### Common Issues and Fixes:
 
- ## **Some Common Issues**
+- Connection Errors: Verify bootstrap_servers='localhost:9092' and port 9092 is open.
+- Low Throughput: Check VM resources (CPU, memory, disk I/O) and consider upgrading hardware.
 
-   - **Connection Errors**: Ensure `bootstrap_servers='localhost:9092'` and port 9092 is open.
-     - Incorrect server addresses or closed ports prevent client-broker communication.
-   - **Low Throughput**: Check system resources (CPU, memory, disk I/O).
-     - Resource constraints can bottleneck message processing, indicating the need for a more powerful VM.
 
----
+# Conclusion
+This guide demonstrates how to deploy AutoMQ, a Kafka-compatible messaging platform, on a Linux VM using Docker. By setting up a broker, creating Python producer and consumer scripts, and monitoring performance, users can understand AutoMQ’s Kafka compatibility, scalability, and cloud-native features. The process highlights:
 
-## Learning Outcomes
-
-- **Kafka API Compatibility**: Understood how AutoMQ supports Kafka clients (`kafka-python`).
-- **AutoMQ Basics**: Deployed AutoMQ, configured a broker, and ran producer/consumer scripts.
-- **Performance Monitoring**: Measured throughput (messages/second) and latency (milliseconds).
-
----
-
+- Successful deployment of AutoMQ with Docker Compose.
+- Implementation of Kafka-compatible clients using kafka-python.
+- Performance monitoring through throughput and latency metrics.
